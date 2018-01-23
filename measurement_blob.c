@@ -60,7 +60,7 @@ uint64_t parseValue(char* strValue, SCOREP_MetricValueType curDatatype, int isHe
   return value.uint;
 }
 
-uint64_t parseValueBinary(char* binValue, int inputBinaryWidth, Netstats_Binary_Datatype binaryDatatype)
+uint64_t parseValueBinary(char* binValue, int inputBinaryWidth, Fileparser_Binary_Datatype binaryDatatype)
 {
   if(NULL == binValue)
   {
@@ -78,50 +78,49 @@ uint64_t parseValueBinary(char* binValue, int inputBinaryWidth, Netstats_Binary_
     uint8_t uint8Val = 0;
     uint16_t uint16Val = 0;
     uint32_t uint32Val = 0;
-    /* TODO: check if memcpy(sint, binValue, 1) really results in a value 0-255 or if it instead results in a value from 4 billion to 16 million */
     switch(binaryDatatype)
     {
-      case NETSTATS_BINARY_DATATYPE_INT8:
+      case FILEPARSER_BINARY_DATATYPE_INT8:
         memcpy(&sint8Val, binValue, 1);
         value.sint = sint8Val;
         break;
-      case NETSTATS_BINARY_DATATYPE_INT16:
+      case FILEPARSER_BINARY_DATATYPE_INT16:
         memcpy(&sint16Val, binValue, 2);
         value.sint = sint16Val;
         break;
-      case NETSTATS_BINARY_DATATYPE_INT32:
+      case FILEPARSER_BINARY_DATATYPE_INT32:
         /* why does this line SEGFAULT?
          *memcpy(&sint32Val, binValue, 4);
          */
         memcpy(&sint32Val, binValue, sizeof(sint32Val));
         value.sint = sint32Val;
         break;
-      case NETSTATS_BINARY_DATATYPE_INT64:
+      case FILEPARSER_BINARY_DATATYPE_INT64:
         memcpy(&(value.sint), binValue, inputBinaryWidth);
         break;
-      case NETSTATS_BINARY_DATATYPE_UINT8:
+      case FILEPARSER_BINARY_DATATYPE_UINT8:
         memcpy(&uint8Val, binValue, 1);
         value.uint = uint8Val;
         break;
-      case NETSTATS_BINARY_DATATYPE_UINT16:
+      case FILEPARSER_BINARY_DATATYPE_UINT16:
         memcpy(&uint16Val, binValue, 2);
         value.uint = uint16Val;
         break;
-      case NETSTATS_BINARY_DATATYPE_UINT32:
+      case FILEPARSER_BINARY_DATATYPE_UINT32:
         memcpy(&uint32Val, binValue, 4);
         value.uint = uint32Val;
         break;
-      case NETSTATS_BINARY_DATATYPE_UINT64:
+      case FILEPARSER_BINARY_DATATYPE_UINT64:
         memcpy(&(value.uint), binValue, inputBinaryWidth);
         break;
-      case NETSTATS_BINARY_DATATYPE_FLOAT:
+      case FILEPARSER_BINARY_DATATYPE_FLOAT:
         memcpy(&cpyFloat, binValue, inputBinaryWidth);
         value.dbl = cpyFloat;
         break;
-      case NETSTATS_BINARY_DATATYPE_DOUBLE:
+      case FILEPARSER_BINARY_DATATYPE_DOUBLE:
         memcpy(&(value.dbl), binValue, inputBinaryWidth);
         break;
-      case NETSTATS_BINARY_DATATYPE_UNDEFINED:
+      case FILEPARSER_BINARY_DATATYPE_UNDEFINED:
         memcpy(&sint8Val, binValue, 1);
         value.sint = sint8Val;
         break;

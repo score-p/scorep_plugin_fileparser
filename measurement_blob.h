@@ -36,20 +36,20 @@ struct blob_holder
   struct measurement_blob* arr; /**< the array to hold the logged values */
 };
 
-typedef enum Netstats_Binary_Datatype
+typedef enum Fileparser_Binary_Datatype
 {
-  NETSTATS_BINARY_DATATYPE_UNDEFINED,
-  NETSTATS_BINARY_DATATYPE_INT8,
-  NETSTATS_BINARY_DATATYPE_INT16,
-  NETSTATS_BINARY_DATATYPE_INT32,
-  NETSTATS_BINARY_DATATYPE_INT64,
-  NETSTATS_BINARY_DATATYPE_UINT8,
-  NETSTATS_BINARY_DATATYPE_UINT16,
-  NETSTATS_BINARY_DATATYPE_UINT32,
-  NETSTATS_BINARY_DATATYPE_UINT64,
-  NETSTATS_BINARY_DATATYPE_FLOAT,
-  NETSTATS_BINARY_DATATYPE_DOUBLE
-} Netstats_Binary_Datatype;
+  FILEPARSER_BINARY_DATATYPE_UNDEFINED,
+  FILEPARSER_BINARY_DATATYPE_INT8,
+  FILEPARSER_BINARY_DATATYPE_INT16,
+  FILEPARSER_BINARY_DATATYPE_INT32,
+  FILEPARSER_BINARY_DATATYPE_INT64,
+  FILEPARSER_BINARY_DATATYPE_UINT8,
+  FILEPARSER_BINARY_DATATYPE_UINT16,
+  FILEPARSER_BINARY_DATATYPE_UINT32,
+  FILEPARSER_BINARY_DATATYPE_UINT64,
+  FILEPARSER_BINARY_DATATYPE_FLOAT,
+  FILEPARSER_BINARY_DATATYPE_DOUBLE
+} Fileparser_Binary_Datatype;
 
 
 /**
@@ -60,7 +60,7 @@ uint64_t parseValue(char* strValue, SCOREP_MetricValueType curDatatype, int isHe
 /**
  * Parses a given binValue according to binaryDatatype returning a uint64_t representation of the value
  */
-uint64_t parseValueBinary(char* binValue, int inputBinaryWidth, Netstats_Binary_Datatype binaryDatatype);
+uint64_t parseValueBinary(char* binValue, int inputBinaryWidth, Fileparser_Binary_Datatype binaryDatatype);
 
 /**
  * Creates a new container with an initial_capacity and an initial_value (which is heeded later when calculating a dif)

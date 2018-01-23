@@ -61,7 +61,7 @@ struct varParams
   int inputHex; /**< if the read data value is to be interpreted as hex value */
   int inputBinaryWidth; /**< if the input is to be interpreted as binary */
   uint64_t binaryOffset; /**< the offset at which the binary value can be read */
-  Netstats_Binary_Datatype binaryDatatype; /**< the datatype of binary input data */
+  Fileparser_Binary_Datatype binaryDatatype; /**< the datatype of binary input data */
 };
 /**
  * Holds the filename and file descriptor of a set of variable definitions which are stored in dataDefinitions
@@ -93,7 +93,7 @@ static int tryInsertingVarParamsSorted(struct fileParams* fileSpec, struct varPa
 static struct Vector* parseWholeFile(struct fileParams* fileSpec);
 static FILE* prepareFileDescriptorForParsing(struct fileParams* fileSpec);
 static struct fileParams* parseVariableSpecification(char* specStr, int idToBeAssigned);
-static SCOREP_MetricValueType parseDatatype(char * curDatatypeName, int* inputHex, int* inputBinary, Netstats_Binary_Datatype* binaryDatatype);
+static SCOREP_MetricValueType parseDatatype(char * curDatatypeName, int* inputHex, int* inputBinary, Fileparser_Binary_Datatype* binaryDatatype);
 static int32_t init();
 static void fini();
 static void set_timer( uint64_t (*timer)(void));
@@ -101,7 +101,7 @@ static void * periodical_logging_thread(void * ignoredArgument);
 SCOREP_Metric_Plugin_MetricProperties* get_event_info(char* event_name);
 static int32_t add_counter(char* event_name);
 static uint64_t get_all_values(int32_t id, SCOREP_MetricTimeValuePair** time_value_list);
-SCOREP_METRIC_PLUGIN_ENTRY( netstats_plugin );
+SCOREP_METRIC_PLUGIN_ENTRY( fileparser_plugin );
 static void log_error(char* errorMessage);
 static void log_error_string(char* errorMessage, char* argumentToPrint);
 
@@ -160,7 +160,7 @@ static int32_t init()
   logging_thread = 0;
 
   /* check whether a logging interval is set */
-  char* from_env = getenv("SCOREP_METRIC_NETSTATS_PLUGIN_PERIOD");
+  char* from_env = getenv("SCOREP_METRIC_FILEPARSER_PLUGIN_PERIOD");
   if(NULL != from_env)
   {
     sleep_duration = atoi(from_env);
@@ -670,7 +670,7 @@ static struct fileParams* parseVariableSpecification(char* specStr, int idToBeAs
   }
   int inputHex = 0;
   int inputBinaryWidth = 0;
-  Netstats_Binary_Datatype binaryDatatype = NETSTATS_BINARY_DATATYPE_UNDEFINED;
+  Fileparser_Binary_Datatype binaryDatatype = FILEPARSER_BINARY_DATATYPE_UNDEFINED;
   SCOREP_MetricValueType curDatatype = parseDatatype(curDatatypeName, &inputHex, &inputBinaryWidth, &binaryDatatype);
 
   /* Parse Filename */
@@ -819,7 +819,7 @@ static struct fileParams* parseVariableSpecification(char* specStr, int idToBeAs
 /**
  * Parses a given curDatatypeName returning the read datatype and setting the arguments accordingly
  */
-static SCOREP_MetricValueType parseDatatype(char * curDatatypeName, int* inputHex, int* inputBinaryWidth, Netstats_Binary_Datatype* binaryDatatype)
+static SCOREP_MetricValueType parseDatatype(char * curDatatypeName, int* inputHex, int* inputBinaryWidth, Fileparser_Binary_Datatype* binaryDatatype)
 {
   SCOREP_MetricValueType curDatatype = SCOREP_METRIC_VALUE_INT64;
 
@@ -842,52 +842,52 @@ static SCOREP_MetricValueType parseDatatype(char * curDatatypeName, int* inputHe
     curDatatype = SCOREP_METRIC_VALUE_DOUBLE;
   } else if(0 == strcasecmp(curDatatypeName, "int8_bin"))
   {
-    *binaryDatatype = NETSTATS_BINARY_DATATYPE_INT8;
+    *binaryDatatype = FILEPARSER_BINARY_DATATYPE_INT8;
     *inputBinaryWidth = 1;
     curDatatype = SCOREP_METRIC_VALUE_INT64;
   } else if(0 == strcasecmp(curDatatypeName, "int16_bin"))
   {
-    *binaryDatatype = NETSTATS_BINARY_DATATYPE_INT16;
+    *binaryDatatype = FILEPARSER_BINARY_DATATYPE_INT16;
     *inputBinaryWidth = 2;
     curDatatype = SCOREP_METRIC_VALUE_INT64;
   } else if(0 == strcasecmp(curDatatypeName, "int32_bin"))
   {
-    *binaryDatatype = NETSTATS_BINARY_DATATYPE_INT32;
+    *binaryDatatype = FILEPARSER_BINARY_DATATYPE_INT32;
     *inputBinaryWidth = 4;
     curDatatype = SCOREP_METRIC_VALUE_INT64;
   } else if(0 == strcasecmp(curDatatypeName, "int64_bin"))
   {
-    *binaryDatatype = NETSTATS_BINARY_DATATYPE_INT64;
+    *binaryDatatype = FILEPARSER_BINARY_DATATYPE_INT64;
     *inputBinaryWidth = 8;
     curDatatype = SCOREP_METRIC_VALUE_INT64;
   } else if(0 == strcasecmp(curDatatypeName, "uint8_bin"))
   {
-    *binaryDatatype = NETSTATS_BINARY_DATATYPE_UINT8;
+    *binaryDatatype = FILEPARSER_BINARY_DATATYPE_UINT8;
     *inputBinaryWidth = 1;
     curDatatype = SCOREP_METRIC_VALUE_UINT64;
   } else if(0 == strcasecmp(curDatatypeName, "uint16_bin"))
   {
-    *binaryDatatype = NETSTATS_BINARY_DATATYPE_UINT16;
+    *binaryDatatype = FILEPARSER_BINARY_DATATYPE_UINT16;
     *inputBinaryWidth = 2;
     curDatatype = SCOREP_METRIC_VALUE_UINT64;
   } else if(0 == strcasecmp(curDatatypeName, "uint32_bin"))
   {
-    *binaryDatatype = NETSTATS_BINARY_DATATYPE_UINT32;
+    *binaryDatatype = FILEPARSER_BINARY_DATATYPE_UINT32;
     *inputBinaryWidth = 4;
     curDatatype = SCOREP_METRIC_VALUE_UINT64;
   } else if(0 == strcasecmp(curDatatypeName, "uint64_bin"))
   {
-    *binaryDatatype = NETSTATS_BINARY_DATATYPE_UINT64;
+    *binaryDatatype = FILEPARSER_BINARY_DATATYPE_UINT64;
     *inputBinaryWidth = 8;
     curDatatype = SCOREP_METRIC_VALUE_UINT64;
   } else if(0 == strcasecmp(curDatatypeName, "float_bin"))
   {
-    *binaryDatatype = NETSTATS_BINARY_DATATYPE_FLOAT;
+    *binaryDatatype = FILEPARSER_BINARY_DATATYPE_FLOAT;
     *inputBinaryWidth = 4;
     curDatatype = SCOREP_METRIC_VALUE_DOUBLE;
   } else if(0 == strcasecmp(curDatatypeName, "double_bin"))
   {
-    *binaryDatatype = NETSTATS_BINARY_DATATYPE_DOUBLE;
+    *binaryDatatype = FILEPARSER_BINARY_DATATYPE_DOUBLE;
     *inputBinaryWidth = 8;
     curDatatype = SCOREP_METRIC_VALUE_DOUBLE;
   } else
@@ -1198,7 +1198,7 @@ static void tryAppendingValueToFoundValuesVec(struct fileParams* fileSpec, struc
 /**
  * Function to be invoked by Scorep to give a bit of information on this plugin
  */
-SCOREP_METRIC_PLUGIN_ENTRY( netstats_plugin )
+SCOREP_METRIC_PLUGIN_ENTRY( fileparser_plugin )
 {
   SCOREP_Metric_Plugin_Info info;
   memset( &info, 0, sizeof( SCOREP_Metric_Plugin_Info ) );
@@ -1222,7 +1222,7 @@ SCOREP_METRIC_PLUGIN_ENTRY( netstats_plugin )
  */
 static void log_error(char* errorMessage)
 {
-  fprintf(stderr, "Score-P Netstats Plugin: %s\n", errorMessage);
+  fprintf(stderr, "Score-P Fileparser Plugin: %s\n", errorMessage);
 }
 
 /**
@@ -1230,7 +1230,7 @@ static void log_error(char* errorMessage)
  */
 static void log_error_string(char* errorMessage, char* argumentToPrint)
 {
-  fprintf(stderr, "Score-P Netstats Plugin: ");
+  fprintf(stderr, "Score-P Fileparser Plugin: ");
   fprintf(stderr, errorMessage, argumentToPrint);
   fprintf(stderr, "\n");
 }
