@@ -1,19 +1,22 @@
 # Fileparser Plugin
---
+
 Fileparser Plugin is a shared library to be used with Score-P. It is capable of logging any value available via standard FileDescriptors on a machine. I.e. one can log:
 * the CPU clock rate from /proc/cpuinfo
 * the current temperature of CPU core 0 from /sys/class/hwmon/hwmon0/temp1_input
 * the current count of bytes downloaded from /proc/net/netstat
+
 and many more parameters
---
+
+---
 ### Dependencies
 * Score-P and gcc
 * libpthread
 * GNU make
---
+
 ### Compilation
 
 Just run `make`, really that is sufficient.
+
 Or alternatively, if you like it more complicated use cmake
 ```
 mkdir build
@@ -21,7 +24,7 @@ cd build
 cmake ..
 make
 ```
---
+---
 ### Example usage
 For the following example the compiled `libfileparser_plugin.so` and the program that you used scorep on need to be in the same directory.
 ```
@@ -36,13 +39,16 @@ export SCOREP_EXPERIMENT_DIRECTORY="scorep_fileparser_trace"
 
 ./my-program-which-was-compiled-using-scorep.bin
 ```
---
+
 # Parameters to Fileparser Plugin
 fileparser plugin takes parameters from either of these variables:
 * SCOREP_METRIC_FILEPARSER_PLUGIN
 * SCOREP_METRIC_FILEPARSER_PLUGIN_PERIOD
+
 The latter can be given a time in microseconds denoting the length of the intervals at which a value will be read and logged.
-The former defines which values are being read. The format definition for it is as follows:
+The former defines which values are being read.
+
+The format definition for **SCOREP_METRIC_FILEPARSER_PLUGIN** is as follows:
 
 ```
 SCOREP_METRIC_FILEPARSER_PLUGIN=<variable>[','<variable>]*
@@ -57,7 +63,8 @@ SCOREP_METRIC_FILEPARSER_PLUGIN=<variable>[','<variable>]*
 <field-separator> = any char except ';' or ','
 ```
 Wherein `variablename` denotes the name the recorded logging data will be assigned. The logging data will be registered under such a name to Score-P and consequently will be shown under that name in the metric selection of any GUI displaying Score-P traces.
-Note that datatypes int_hex and uint_hex will assume the input data is in form hexadecimal (to the base 16).
+
+**Note** that datatypes int_hex and uint_hex will assume the input data is in form hexadecimal (to the base 16).
 `field-datatype` will be interpreted towards either uint64_t, double or int64_t (default). All the read/logged values of one variable definition will be parsed as that datatype. This means that read values will be truncated according to the specified datatype.
 `field-parameter` are additional parameters. Such may be a specification of either:
 * `r`/`R`/`l`/`L` to specify a line number(i.e. row)
@@ -67,7 +74,8 @@ Note that datatypes int_hex and uint_hex will assume the input data is in form h
 * `D`/`d` to specify that an initial value should be read and subsequential reads be logged as offsets to the initial value
 * `P`/`p` to specify that the metric shall be considered as a series of measure points
 * `A`/`a` to specify that the metric shall be considered continuous, in a GUI a line may be drawn between measure points (this is the default if `p` is not specified)
-Note: lines, columns and also byteOffset are numbered from 0. So in order to read out the 3th column from the 5th line one would specify `c=2;l=4` (or `c=2;r=4` since *r* and *l* are interchangeable).
+
+**Note:** lines, columns and also byteOffset are numbered from 0. So in order to read out the 3th column from the 5th line one would specify `c=2;l=4` (or `c=2;r=4` since *r* and *l* are interchangeable).
 
 For example the following specification:
 ```
@@ -88,4 +96,9 @@ export SCOREP_METRIC_FILEPARSER_PLUGIN="CPU Clock 1:double@/proc/cpuinfo+c=2;r=7
 This will log the Mhz count of CPU 1, CPU 2, CPU 3, CPU 4, the system load, the count of kb of free memory, the InOctets value from /proc/net/netstat, some value from /proc/net/dev and the cpu core temperatures of Core 1 and Core 2.
 
 # Can this plugin read binary?
-Yes. Yes it can.
+Yes.
+
+For example it could read the second byte of temperature string from the first CPU core. Note that in this example `b=1`is required to specify the offset at which a data value is to be read.
+```
+export SCOREP_METRIC_FILEPARSER_PLUGIN="CPU Temp:uint8_bin@/sys/class/hwmon/hwmon0/temp1_input+b=1"
+```
