@@ -1,26 +1,25 @@
-#specify the minimum required version of cmake
-# a version below that will make cmake fail
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.9)
 
-#name of my project
 project(fileparser_plugin)
 
-include(common/FindScorep.cmake)
-if(SCOREP_FOUND)
-    include_directories(${SCOREP_INCLUDE_DIRS})
-    link_directories(${SCOREP_LIBRARY_DIRS})
-    SET(CMAKE_INSTALL_PREFIX ${SCOREP_ROOT_PATH} CACHE PATH "Install path prefix, prepended onto install directories." FORCE)
-else()
-    message(SEND_ERROR "Scorep was not found but is required")
-endif()
+include(cmake/DefaultBuildType.cmake)
+include(cmake/GitSubmoduleUpdate.cmake)
+git_submodule_update()
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/common")
 
+find_package(Scorep REQUIRED)
+set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+find_package(Threads REQUIRED)
 
-#adds the gcc option to insert entry points to the compiler flags
-#probably not required if we specify add_library with SHARED
-#add_definitions(-fPIC)
+add_library(${PROJECT_NAME} MODULE fileparser_plugin.c measurement_blob.c vector.c)
 
-add_library(${PROJECT_NAME} SHARED fileparser_plugin.c measurement_blob.c vector.c)
-target_link_libraries(${PROJECT_NAME} pthread)
+target_link_libraries(${PROJECT_NAME}
+    PUBLIC
+        Threads::Threads
+    PRIVATE
+        Scorep::Plugin
+)
+target_compile_options(${PROJECT_NAME} PRIVATE -Wall -pedantic -Wextra)
 
 install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION lib)
