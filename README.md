@@ -32,7 +32,7 @@ export SCOREP_METRIC_PLUGINS="fileparser_plugin"
 export LD_LIBRARY_PATH="$PWD"
 export SCOREP_ENABLE_TRACING=true
 export SCOREP_ENABLE_PROFILING=false
-SCOREP_METRIC_FILEPARSER_PLUGIN_PERIOD=10000
+export SCOREP_METRIC_FILEPARSER_PLUGIN_PERIOD=10000
 export SCOREP_METRIC_FILEPARSER_PLUGIN="CPU Clock 1:double@/proc/cpuinfo+c=2;r=7;s= ;p,CPU Clock 2:double@/proc/cpuinfo+c=2;r=34;s= ;p,CPU Clock 3:double@/proc/cpuinfo+c=2;r=61;s= ;p,CPU Clock 4:double@/proc/cpuinfo+c=2;r=88;s= ;p,Load AVG:double@/proc/loadavg+c=1;r=0;s= ,MemFree:int@/proc/meminfo+c=1;r=1;s= ,netstat:int@/proc/net/netstat+c=7;r=3s= ;d,dev    :int@/proc/net/dev+c=1;r=3;d,Core#0Temp:int@/sys/class/hwmon/hwmon0/temp1_input+c=0;r=0;p,Core#1Temp:int@/sys/class/hwmon/hwmon1/temp1_input+;p"
 
 export SCOREP_EXPERIMENT_DIRECTORY="scorep_fileparser_trace"
