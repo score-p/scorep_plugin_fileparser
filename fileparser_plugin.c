@@ -477,7 +477,7 @@ static int tryInsertingVarParamsSorted(struct fileParams* fileSpec, struct varPa
                 {
                     memmove(fileSpec->binaryDefinitions->data + i + 1,
                             fileSpec->binaryDefinitions->data + i,
-                            sizeof(void*) * (fileSpec->binaryDefinitions->length - i));
+                            sizeof(void*) * (fileSpec->binaryDefinitions->length - i - 1));
                     fileSpec->binaryDefinitions->data[i] = varSpec;
                     wasInserted = 1;
                     return 0;
@@ -507,7 +507,7 @@ static int tryInsertingVarParamsSorted(struct fileParams* fileSpec, struct varPa
                 {
                     memmove(fileSpec->dataDefinitions->data + i + 1,
                             fileSpec->dataDefinitions->data + i,
-                            sizeof(void*) * (fileSpec->dataDefinitions->length - i));
+                            sizeof(void*) * (fileSpec->dataDefinitions->length - i - 1));
                     fileSpec->dataDefinitions->data[i] = varSpec;
                     wasInserted = 1;
                     return 0;

@@ -301,6 +301,8 @@ static int blobarray_allocate_for_more(struct blob_holder* container)
             newReserve = 2;
         }
         /* try realloc of the container's logging array */
+        /* error occured here, when calling this function from blobarray_append:
+         * realloc(): invalid next size: 0x0000000002918790 ****/
         struct measurement_blob* reallocSwap =
             realloc(container->arr, newReserve * sizeof(struct measurement_blob));
         if (NULL != reallocSwap)
