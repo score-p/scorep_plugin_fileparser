@@ -10,13 +10,12 @@
 
 #include <stdlib.h>
 
-
 /* A container struct for holding an arbitrary amount of any kind of elements */
 struct Vector
 {
-  int length; /**< How many elements are currently in use? */
-  int reserve; /**< How large is the memory reserve */
-  void** data; /**< An array of pointers to the associated data */
+    int length;  /**< How many elements are currently in use? */
+    int reserve; /**< How large is the memory reserve */
+    void** data; /**< An array of pointers to the associated data */
 };
 
 /**
