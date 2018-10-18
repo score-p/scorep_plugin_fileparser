@@ -295,7 +295,7 @@ static int blobarray_allocate_for_more(struct blob_holder* container)
     if ((container->length + 1) >= container->reserved)
     {
         /* assume we want a new reserve of twice the previous size */
-        int newReserve = container->reserved;
+        int newReserve = container->reserved * 2;
         if (2 > newReserve)
         {
             newReserve = 2;
