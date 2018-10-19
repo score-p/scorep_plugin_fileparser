@@ -96,13 +96,13 @@ struct foundValue
 static struct varParams* getVarParamsForId(int32_t desiredId);
 static int initializeLoggingFor(struct fileParams* fileSpec, struct varParams* varSpec);
 static void processLine(struct fileParams* fileSpec, int* varParamsIndex, int curLineNumber,
-                        struct Vector* foundValuesVec, char* myLine);
+                        struct Vector* foundValuesVec, char* myLine, bool verbose);
 static void tryAppendingValueToFoundValuesVec(struct fileParams* fileSpec,
                                               struct varParams* varSpec,
                                               struct Vector* foundValuesVec, char* foundStr);
 static int tryInsertingFileParams(struct fileParams* fileSpec);
 static int tryInsertingVarParamsSorted(struct fileParams* fileSpec, struct varParams* varSpec);
-static struct Vector* parseWholeFile(struct fileParams* fileSpec);
+static struct Vector* parseWholeFile(struct fileParams* fileSpec, bool verbose);
 static FILE* prepareFileDescriptorForParsing(struct fileParams* fileSpec);
 static struct fileParams* parseVariableSpecification(char* specStr, int idToBeAssigned);
 static SCOREP_MetricValueType parseDatatype(char* curDatatypeName, int* inputHex, int* inputBinary,
@@ -286,7 +286,7 @@ static void* periodical_logging_thread(void* fileSpecVec)
 
         for (int i = 0; i < fileParamsVector->length; ++i)
         {
-            struct Vector* foundValuesVec = parseWholeFile(fileParamsVector->data[i]);
+            struct Vector* foundValuesVec = parseWholeFile(fileParamsVector->data[i], false);
             if (NULL != foundValuesVec)
             {
                 for (int j = 0; j < foundValuesVec->length; ++j)
@@ -548,8 +548,8 @@ static int32_t add_counter(char* event_name)
     for (int i = 0; (i < fileParamsVector->length && NULL == matchingFileSpec); ++i)
     {
     	struct fileParams* curFileSpec = fileParamsVector->data[i];
-    	for(int i = 0; (i < curFileSpec->dataDefinitions->length && NULL == matchingFileSpec); ++i) {
-    		struct varParams* curVarSpec = (struct varParams*) curFileSpec->dataDefinitions->data[i];
+    	for(int j = 0; (j < curFileSpec->dataDefinitions->length && NULL == matchingFileSpec); ++j) {
+    		struct varParams* curVarSpec = (struct varParams*) curFileSpec->dataDefinitions->data[j];
     	    if(0 == strcmp(curVarSpec->name, event_name))
     	    {
     	    	if(!initializeLoggingFor(curFileSpec, curVarSpec))
@@ -560,8 +560,8 @@ static int32_t add_counter(char* event_name)
 
     	    }
         }
-    	for(int i = 0; (i < curFileSpec->binaryDefinitions->length && NULL == matchingFileSpec); ++i) {
-    		struct varParams* curVarSpec = (struct varParams*) curFileSpec->binaryDefinitions->data[i];
+    	for(int j = 0; (j < curFileSpec->binaryDefinitions->length && NULL == matchingFileSpec); ++j) {
+    		struct varParams* curVarSpec = (struct varParams*) curFileSpec->binaryDefinitions->data[j];
     	    if(0 == strcmp(curVarSpec->name, event_name))
     	    {
     	    	if(!initializeLoggingFor(curFileSpec, curVarSpec))
@@ -607,7 +607,7 @@ static int initializeLoggingFor(struct fileParams* fileSpec, struct varParams* v
 		log_error_string("File \"%s\" can not be accessed for reading.",
 				fileSpec->filename);
 	}
-	struct Vector* foundValuesVec = parseWholeFile(fileSpec);
+	struct Vector* foundValuesVec = parseWholeFile(fileSpec, true);
     bool couldInitialize = false;
 
 	if (NULL != foundValuesVec)
@@ -1032,7 +1032,7 @@ static SCOREP_MetricValueType parseDatatype(char* curDatatypeName, int* inputHex
  * declare them within a method to be static) of course this also means I will have to allocate them
  * at the beginning and have to free them at the end
  */
-static struct Vector* parseWholeFile(struct fileParams* fileSpec)
+static struct Vector* parseWholeFile(struct fileParams* fileSpec, bool verbose)
 {
 
     /* Try to get a file descriptor pointing to the beginning of the file */
@@ -1198,7 +1198,7 @@ static struct Vector* parseWholeFile(struct fileParams* fileSpec)
                     overlapBuf = overlapSwapBuf;
 
                     processLine(fileSpec, &varParamsIndex, curLineNumber, foundValuesVec,
-                                overlapBuf);
+                                overlapBuf, verbose);
                     ++curLineNumber;
 
                     /* a bit of cleanup */
@@ -1212,7 +1212,7 @@ static struct Vector* parseWholeFile(struct fileParams* fileSpec)
                 {
                     curNewlineIndex[0] = '\0';
                     processLine(fileSpec, &varParamsIndex, curLineNumber, foundValuesVec,
-                                prevIndex);
+                                prevIndex, verbose);
                     ++curLineNumber;
 
                     prevIndex = curNewlineIndex + 1;
@@ -1230,7 +1230,7 @@ static struct Vector* parseWholeFile(struct fileParams* fileSpec)
     /* process last line */
     if (NULL != overlapBuf)
     {
-        processLine(fileSpec, &varParamsIndex, curLineNumber, foundValuesVec, overlapBuf);
+        processLine(fileSpec, &varParamsIndex, curLineNumber, foundValuesVec, overlapBuf, verbose);
         ++curLineNumber;
         free(overlapBuf);
     }
@@ -1295,7 +1295,7 @@ static FILE* prepareFileDescriptorForParsing(struct fileParams* fileSpec)
  * result Vector foundValuesVec
  */
 static void processLine(struct fileParams* fileSpec, int* varParamsIndex, int curLineNumber,
-                        struct Vector* foundValuesVec, char* myLine)
+                        struct Vector* foundValuesVec, char* myLine, bool verbose)
 {
     if (NULL == fileSpec || NULL == fileSpec->dataDefinitions || NULL == foundValuesVec)
     {
@@ -1307,15 +1307,18 @@ static void processLine(struct fileParams* fileSpec, int* varParamsIndex, int cu
     }
     struct varParams* curVarSpec =
         (struct varParams*)fileSpec->dataDefinitions->data[*varParamsIndex];
+
     while (NULL != curVarSpec && curLineNumber == curVarSpec->posRow)
     {
         char separator[] = { 0, 0 };
         separator[0] = curVarSpec->posSep;
+        char* lineDupForStrtok = strdup(myLine);
         char* nextToken = NULL;
-        char* curToken = strtok_r(myLine, separator, &nextToken);
+        char* curToken = strtok_r(lineDupForStrtok, separator, &nextToken);
         int curColumnIndex = 0;
         while (NULL != curToken)
         {
+
             if (curColumnIndex == curVarSpec->posCol)
             {
                 tryAppendingValueToFoundValuesVec(fileSpec, curVarSpec, foundValuesVec, curToken);
@@ -1324,6 +1327,13 @@ static void processLine(struct fileParams* fileSpec, int* varParamsIndex, int cu
 
             curToken = strtok_r(NULL, separator, &nextToken);
             ++curColumnIndex;
+        }
+        if(verbose)
+        {
+            if(NULL == curToken && curColumnIndex <= curVarSpec->posCol)
+            {
+                log_error_string("Could not read metric \"%s\", not enough columns in line", curVarSpec->name);
+            }
         }
         *varParamsIndex = *varParamsIndex + 1;
         if (*varParamsIndex < fileSpec->dataDefinitions->length)
@@ -1334,6 +1344,7 @@ static void processLine(struct fileParams* fileSpec, int* varParamsIndex, int cu
         {
             curVarSpec = NULL;
         }
+        free(lineDupForStrtok);
     }
 }
 
