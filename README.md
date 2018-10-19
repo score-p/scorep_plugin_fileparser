@@ -15,9 +15,7 @@ and many more parameters
 
 ### Compilation
 
-Just run `make`, really that is sufficient.
-
-Or alternatively, if you like it more complicated use cmake
+use make:
 ```
 mkdir build
 cd build
