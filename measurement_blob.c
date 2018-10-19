@@ -268,7 +268,7 @@ int blobarray_get_TimeValuePairs(struct blob_holder* container,
     else
     {
         /* run through the logged data, and put the data points into the array for Score-P */
-        int total_index = 0;
+        uint64_t total_index = 0;
         for (; total_index < container->length; ++total_index)
         {
             allocated_pairs[total_index].timestamp = container->arr[total_index].start_time;

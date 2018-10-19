@@ -29,6 +29,8 @@
 #include <errno.h>
 /* required for asynchronous threading, pthread_create, pthread_join, etc. */
 #include <pthread.h>
+/* required for struct varParams */
+#include <stdbool.h>
 /* required for metric plugin */
 #include <scorep/SCOREP_MetricPlugins.h>
 
@@ -51,6 +53,8 @@ struct varParams
 {
     int id;     /**< associated id for this spec (corresponds with logging id) */
     char* name; /**< associated name of this variable */
+    bool doLog;           /**< whether this value was confirmed to be logged */
+    struct blob_holder* logger;      /**< the associated logger instance */
     SCOREP_MetricValueType datatype; /**< datatype this variable is parsed to */
     int posRow;            /**< the row, i.e. line number where the sought field resides */
     int posCol;            /**< the column where the sought field resides */
@@ -89,6 +93,8 @@ struct foundValue
     uint64_t associatedValue;                /**< the value to be stored/transported */
 };
 
+static struct varParams* getVarParamsForId(int32_t desiredId);
+static int initializeLoggingFor(struct fileParams* fileSpec, struct varParams* varSpec);
 static void processLine(struct fileParams* fileSpec, int* varParamsIndex, int curLineNumber,
                         struct Vector* foundValuesVec, char* myLine);
 static void tryAppendingValueToFoundValuesVec(struct fileParams* fileSpec,
@@ -114,12 +120,11 @@ static void log_error_string(char* errorMessage, char* argumentToPrint);
 
 static int count_of_counters = 0;
 static int calls_to_event_info = 0;
-static int calls_to_add_counter = 0;
+static int successfull_logging_additions = 0;
 static int calls_to_get_all_values = 0;
 static struct Vector* fileParamsVector = NULL;
 static volatile int logging_enabled;
 static pthread_t logging_thread;
-static struct blob_holder* logging_containers = NULL;
 static uint64_t (*wtime)(void) = NULL;
 static int sleep_duration = 100000;
 static pthread_mutex_t logging_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -215,14 +220,6 @@ static void fini()
     /*  cleanup, i.e. use destroy and free */
     if (NULL != fileParamsVector)
     {
-        if (NULL != logging_containers)
-        {
-            for (int i = 0; i < count_of_counters; ++i)
-            {
-                blobarray_destroy_subelements(logging_containers + i);
-            }
-            free(logging_containers);
-        }
         /* free the data of the fileParams and varParams specifications */
         for (int i = 0; i < fileParamsVector->length; ++i)
         {
@@ -231,6 +228,7 @@ static void fini()
             {
                 struct varParams* varSpec = fileSpec->dataDefinitions->data[j];
                 free(varSpec->name);
+                blobarray_destroy_subelements(varSpec->logger);
                 free(varSpec);
             }
             vec_destroy(fileSpec->dataDefinitions);
@@ -238,6 +236,7 @@ static void fini()
             {
                 struct varParams* varSpec = fileSpec->binaryDefinitions->data[j];
                 free(varSpec->name);
+                blobarray_destroy_subelements(varSpec->logger);
                 free(varSpec);
             }
             vec_destroy(fileSpec->binaryDefinitions);
@@ -274,8 +273,9 @@ static void set_timer(uint64_t (*timer)(void))
 /**
  * Thread function being started from add_counters, to run periodically during program execution
  */
-static void* periodical_logging_thread(void* ignoredArgument)
+static void* periodical_logging_thread(void* fileSpecVec)
 {
+    struct Vector* fileParamsVector = (struct Vector *) fileSpecVec;
     while (logging_enabled)
     {
         if (NULL == wtime)
@@ -292,12 +292,15 @@ static void* periodical_logging_thread(void* ignoredArgument)
                 for (int j = 0; j < foundValuesVec->length; ++j)
                 {
                     struct foundValue* curFound = foundValuesVec->data[j];
-                    if (blobarray_append(logging_containers + curFound->associatedVarParams->id,
-                                         curFound->associatedValue, wtime(),
-                                         curFound->associatedVarParams->logDif,
-                                         curFound->associatedVarParams->datatype))
+                    if(curFound->associatedVarParams->doLog && NULL != curFound->associatedVarParams->logger)
                     {
-                        log_error("Ran out of memory when trying to memorize logging values.");
+                        if (blobarray_append(curFound->associatedVarParams->logger,
+                                             curFound->associatedValue, wtime(),
+                                             curFound->associatedVarParams->logDif,
+                                             curFound->associatedVarParams->datatype))
+                        {
+                            log_error("Ran out of memory when trying to memorize logging values.");
+                        }
                     }
                     free(foundValuesVec->data[j]);
                 }
@@ -491,6 +494,9 @@ static int tryInsertingVarParamsSorted(struct fileParams* fileSpec, struct varPa
                     varSpec;
                 return 0;
             }
+        } else
+        {
+        	return 2;
         }
     }
     else
@@ -535,79 +541,109 @@ static int tryInsertingVarParamsSorted(struct fileParams* fileSpec, struct varPa
  */
 static int32_t add_counter(char* event_name)
 {
-
-    ++calls_to_add_counter;
-
-    if (count_of_counters == calls_to_add_counter)
+    /* run through all the fileParams, scanning the files for an initialization value */
+    //DONE: with each call of add_counter find the corresponding, registered metric, and start the logging for it
+    int matchingId = -1;
+    struct fileParams* matchingFileSpec = NULL;
+    for (int i = 0; (i < fileParamsVector->length && NULL == matchingFileSpec); ++i)
     {
-        /* initialize logging */
-        logging_containers = calloc(count_of_counters, sizeof(struct blob_holder));
-        if (NULL == logging_containers)
-        {
-            log_error("Could not allocate memory to create blob_holders for logging. Aborting.");
-            return -1;
+    	struct fileParams* curFileSpec = fileParamsVector->data[i];
+    	for(int i = 0; (i < curFileSpec->dataDefinitions->length && NULL == matchingFileSpec); ++i) {
+    		struct varParams* curVarSpec = (struct varParams*) curFileSpec->dataDefinitions->data[i];
+    	    if(0 == strcmp(curVarSpec->name, event_name))
+    	    {
+    	    	if(!initializeLoggingFor(curFileSpec, curVarSpec))
+    	    	{
+        	        matchingFileSpec = curFileSpec;
+        	        matchingId = curVarSpec->id;
+    	    	}
+
+    	    }
         }
-        /* run through all the fileParams, scanning the files for an initialization value */
-        for (int i = 0; i < fileParamsVector->length; ++i)
-        {
-            struct fileParams* curFileSpec = fileParamsVector->data[i];
-            if (!access(curFileSpec->filename, R_OK))
-            {
-                curFileSpec->isAccessible = 1;
-            }
-            else
-            {
-                log_error_string("File \"%s\" can not be accessed for reading.",
-                                 curFileSpec->filename);
-            }
-
-            struct Vector* foundValuesVec = parseWholeFile(curFileSpec);
-
-            if (NULL != foundValuesVec)
-            {
-                /* run through individual read outs  */
-                for (int j = 0; j < foundValuesVec->length; ++j)
-                {
-                    /* try to create a new blob_holder/logging container */
-                    struct foundValue* curFound = foundValuesVec->data[j];
-                    if (-1 < curFound->associatedVarParams->id &&
-                        curFound->associatedVarParams->id < count_of_counters)
-                    {
-                        struct blob_holder* newLoggingHolder =
-                            blobarray_create(BLOBARRAY_INIT_BUF, curFound->associatedValue);
-                        if (NULL != newLoggingHolder)
-                        {
-                            memcpy(logging_containers + curFound->associatedVarParams->id,
-                                   newLoggingHolder, sizeof(struct blob_holder));
-                            free(newLoggingHolder);
-                        }
-                        else
-                        {
-                            log_error("Could not allocate a few bytes of memory to create a swap "
-                                      "blob_holder.");
-                        }
-                    }
-                    else
-                    {
-                        log_error("Internal numbering of counters went horribly wrong. Aborting");
-                        return -1;
-                    }
-                    free(foundValuesVec->data[j]);
-                }
-                vec_destroy(foundValuesVec);
-            }
-        }
-
-        /* start thread to read out the individual files periodically */
-        if (pthread_create(&logging_thread, NULL, &periodical_logging_thread, NULL))
-        {
-            log_error("Can't start logging thread.\n");
-            return -ECHILD;
+    	for(int i = 0; (i < curFileSpec->binaryDefinitions->length && NULL == matchingFileSpec); ++i) {
+    		struct varParams* curVarSpec = (struct varParams*) curFileSpec->binaryDefinitions->data[i];
+    	    if(0 == strcmp(curVarSpec->name, event_name))
+    	    {
+    	    	if(!initializeLoggingFor(curFileSpec, curVarSpec))
+    	    	{
+        	        matchingFileSpec = curFileSpec;
+        	        matchingId = curVarSpec->id;
+    	    	}
+    	    }
         }
     }
 
-    return calls_to_add_counter -
-           1; // this return value defines the id with which the counter will be associated
+    if(NULL != matchingFileSpec)
+    {
+    	++successfull_logging_additions;
+    	if(1 == successfull_logging_additions)
+    	{
+    	    /* start thread to read out the individual files periodically */
+    	    if (pthread_create(&logging_thread, NULL, &periodical_logging_thread, fileParamsVector))
+    	    {
+    	        log_error("Can't start logging thread.\n");
+    	        return -ECHILD;
+    	    }
+    	}
+   } else
+   {
+        log_error_string("Could not match up add_counter(\"%s\") with previous get_event_info", event_name);
+        return -1;
+   }
+
+    return matchingId; // this return value defines the id with which the counter will be associated
+}
+/**
+ * Helper function to read the first values from a fileSpec and initialize logging on the specified varSpec
+ */
+static int initializeLoggingFor(struct fileParams* fileSpec, struct varParams* varSpec)
+{
+	if (!access(fileSpec->filename, R_OK))
+	{
+		fileSpec->isAccessible = 1; //TODO: heed this flag down below in function prepareFileDescriptor!
+	}
+	else
+	{
+		log_error_string("File \"%s\" can not be accessed for reading.",
+				fileSpec->filename);
+	}
+	struct Vector* foundValuesVec = parseWholeFile(fileSpec);
+    bool couldInitialize = false;
+
+	if (NULL != foundValuesVec)
+	{
+		/* run through individual read outs  */
+		for (int j = 0; j < foundValuesVec->length; ++j)
+		{
+			/* try to create a new blob_holder/logging container */
+			struct foundValue* curFound = foundValuesVec->data[j];
+			if (curFound->associatedVarParams == varSpec)
+			{
+				struct blob_holder* newLoggingHolder =
+						blobarray_create(BLOBARRAY_INIT_BUF, curFound->associatedValue);
+				if (NULL != newLoggingHolder)
+				{
+					curFound->associatedVarParams->logger = newLoggingHolder;
+					couldInitialize = true;
+				}
+				else
+				{
+					log_error("Could not allocate a few bytes of memory to create a blob_holder.");
+				}
+			}
+			free(foundValuesVec->data[j]);
+		}
+		vec_destroy(foundValuesVec);
+	}
+
+	if(couldInitialize)
+	{
+		varSpec->doLog = true;
+		return 0;
+	} else
+	{
+		return 1;
+	}
 }
 /**
  * Required function for Scorep to read out the logged data
@@ -615,20 +651,22 @@ static int32_t add_counter(char* event_name)
 static uint64_t get_all_values(int32_t id, SCOREP_MetricTimeValuePair** time_value_list)
 {
     int saved_nr_results = 0;
-    int actualId = id;
     /* try allocating memory */
     pthread_mutex_lock(&logging_mutex);
-    if (NULL != logging_containers && -1 < id && id < count_of_counters)
+    if (-1 < id && id < count_of_counters)
     {
-        saved_nr_results =
-            blobarray_get_TimeValuePairs(logging_containers + actualId, time_value_list);
-        if (0 > saved_nr_results)
-        {
-            log_error("Could not allocate memory for passing logging data to Score-P.\n");
-            pthread_mutex_unlock(&logging_mutex);
-            return 0;
-        }
-        blobarray_reset(logging_containers + actualId);
+    	struct varParams* varSpec = getVarParamsForId(id);
+    	if(NULL != varSpec && varSpec->doLog) {
+            saved_nr_results =
+                blobarray_get_TimeValuePairs(varSpec->logger, time_value_list);
+            if (0 > saved_nr_results)
+            {
+                log_error("Could not allocate memory for passing logging data to Score-P.\n");
+                pthread_mutex_unlock(&logging_mutex);
+                return 0;
+            }
+            blobarray_reset(varSpec->logger);
+    	}
     }
     pthread_mutex_unlock(&logging_mutex);
 
@@ -637,6 +675,33 @@ static uint64_t get_all_values(int32_t id, SCOREP_MetricTimeValuePair** time_val
     return saved_nr_results;
 }
 
+/**
+ * Iterates over FileParamsVector to find the corresponding VarParams Data
+ */
+static struct varParams* getVarParamsForId(int32_t desiredId)
+{
+    struct varParams* desiredVarSpec = NULL;
+    for(int i = 0; (i < fileParamsVector->length && NULL == desiredVarSpec); ++i)
+    {
+    	struct fileParams* curFileSpec = (struct fileParams*) fileParamsVector->data[i];
+    	for(int j = 0; (j < curFileSpec->dataDefinitions->length && NULL == desiredVarSpec); ++j)
+    	{
+    		if(((struct varParams*)curFileSpec->dataDefinitions->data[j])->id == desiredId)
+    		{
+    			desiredVarSpec = (struct varParams*) curFileSpec->dataDefinitions->data[j];
+    		}
+    	}
+    	for(int j = 0; (j < curFileSpec->binaryDefinitions->length && NULL == desiredVarSpec); ++j)
+    	{
+    		if(((struct varParams*)curFileSpec->binaryDefinitions->data[j])->id == desiredId)
+    		{
+    			desiredVarSpec = (struct varParams*) curFileSpec->binaryDefinitions->data[j];
+    		}
+    	}
+    }
+
+    return desiredVarSpec;
+}
 /**
  * Parses a single variable argument returning a pointer to a nice struct
  *
@@ -815,6 +880,7 @@ static struct fileParams* parseVariableSpecification(char* specStr, int idToBeAs
         /* assign the actual values */
         varSpec->id = idToBeAssigned;
         varSpec->name = curVarName;
+        varSpec->doLog = false;
         varSpec->datatype = curDatatype;
         parsedData->filename = curFilename;
         parsedData->fileDescriptor = NULL;
@@ -1281,21 +1347,21 @@ static void tryAppendingValueToFoundValuesVec(struct fileParams* fileSpec,
     struct foundValue* found = calloc(1, sizeof(struct foundValue));
     if (NULL != found)
     {
-        found->associatedVarParams = varSpec;
-        found->associatedFileParams = fileSpec;
-        if (0 < varSpec->inputBinaryWidth)
-        {
-            found->associatedValue =
-                parseValueBinary(foundStr, varSpec->inputBinaryWidth, varSpec->binaryDatatype);
-        }
-        else
-        {
-            found->associatedValue = parseValue(foundStr, varSpec->datatype, varSpec->inputHex);
-        }
-        if (vec_append(foundValuesVec, found))
-        {
-            log_error("Could not append read value to foundValuesVec, insufficient memory.");
-        }
+		found->associatedVarParams = varSpec;
+		found->associatedFileParams = fileSpec;
+		if (0 < varSpec->inputBinaryWidth)
+		{
+			found->associatedValue =
+					parseValueBinary(foundStr, varSpec->inputBinaryWidth, varSpec->binaryDatatype);
+		}
+		else
+		{
+			found->associatedValue = parseValue(foundStr, varSpec->datatype, varSpec->inputHex);
+		}
+		if (vec_append(foundValuesVec, found))
+		{
+			log_error("Could not append read value to foundValuesVec, insufficient memory.");
+		}
     }
     else
     {
