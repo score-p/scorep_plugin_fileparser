@@ -15,7 +15,7 @@ and many more parameters
 
 ### Compilation
 
-use make:
+Use cmake:
 ```
 mkdir build
 cd build

@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.9)
 
 project(fileparser_plugin)
 
+set (CMAKE_CXX_STANDARD 11)
+
 include(cmake/DefaultBuildType.cmake)
 include(cmake/GitSubmoduleUpdate.cmake)
 git_submodule_update()
