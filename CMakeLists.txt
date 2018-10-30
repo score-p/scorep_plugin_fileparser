@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.9)
 
-project(fileparser_plugin)
+project(fileparser_plugin VERSION 1.3.1)
 
 set (CMAKE_CXX_STANDARD 11)
 
@@ -33,5 +33,18 @@ target_link_libraries(${PROJECT_NAME}
         Scorep::Plugin
 )
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -pedantic -Wextra)
+
+find_program(ARCHIVE_GIT archive-git ${CMAKE_SOURCE_DIR})
+if(ARCHIVE_GIT)
+    set(ARCHIVE_NAME ${CMAKE_PROJECT_NAME}-${PROJECT_VERSION})
+    add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/${ARCHIVE_NAME}.tar.gz
+        COMMAND ./archive-git ${CMAKE_BINARY_DIR}/${ARCHIVE_NAME}.tar.gz
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    )
+    add_custom_target(dist DEPENDS ${CMAKE_BINARY_DIR}/${ARCHIVE_NAME}.tar.gz)
+else()
+    message(STATUS "Couldn't find ./archive-git.")
+endif()
 
 install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION lib)

@@ -1,0 +1,22 @@
+#!/bin/bash
+
+target_name="$(basename "${1}" | sed "s/\\(\\.tar\\)\\?\\.gz\$//")";
+target_dir="$(dirname "${1}")";
+temp_dir="${target_dir}/${target_name}";
+mkdir "${temp_dir}";
+while read curf; do
+    curd="$(dirname "${curf}")";
+    if [ "." = "${curd}" ]; then
+        cp -rt "${temp_dir}" "${curf}";
+    else
+        if [ "/" = "${curd:0:1}" ]; then
+            mkdir -p "${curd}";
+            cp -rt "${curd}" "${curf}";
+        else
+            mkdir -p "${temp_dir}/${curd}";
+            cp -rt "${temp_dir}/${curd}" "${curf}";
+        fi;
+    fi;
+done <<< "$(git ls-tree -r master --name-only | grep -v "\\.git\\|\\.gitmodules\\|build.*")";
+tar -C "${target_dir}" -c "${target_name}"  | gzip -c  > "$1";
+rm -rf "${temp_dir}";
