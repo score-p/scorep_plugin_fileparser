@@ -229,6 +229,7 @@ static void fini()
                 struct varParams* varSpec = fileSpec->dataDefinitions->data[j];
                 free(varSpec->name);
                 blobarray_destroy_subelements(varSpec->logger);
+                free(varSpec->logger);
                 free(varSpec);
             }
             vec_destroy(fileSpec->dataDefinitions);
@@ -237,6 +238,7 @@ static void fini()
                 struct varParams* varSpec = fileSpec->binaryDefinitions->data[j];
                 free(varSpec->name);
                 blobarray_destroy_subelements(varSpec->logger);
+                free(varSpec->logger);
                 free(varSpec);
             }
             vec_destroy(fileSpec->binaryDefinitions);
