@@ -4,6 +4,16 @@ project(fileparser_plugin)
 
 set (CMAKE_CXX_STANDARD 11)
 
+execute_process(
+  COMMAND 
+    "git" "submodule" "update" "--init" "--recursive"
+  WORKING_DIRECTORY
+  "${CMAKE_SOURCE_DIR}"
+  RESULT_VARIABLE result
+  ERROR_VARIABLE error
+)
+
+
 include(cmake/DefaultBuildType.cmake)
 include(cmake/GitSubmoduleUpdate.cmake)
 git_submodule_update()
