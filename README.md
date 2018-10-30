@@ -9,9 +9,12 @@ and many more parameters
 
 ---
 ### Dependencies
-* Score-P and gcc
+* [Score-P](https://www.vi-hps.org/projects/score-p/)
+* gcc
 * libpthread
+* [CMake](https://cmake.org/)
 * GNU make
+* *for development: git*
 
 ### Compilation
 
