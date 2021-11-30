@@ -213,9 +213,12 @@ static int32_t init()
  */
 static void fini()
 {
-    logging_enabled = 0;
-    pthread_join(logging_thread, NULL);
-    pthread_mutex_destroy(&logging_mutex);
+    if (logging_thread)
+    {
+        logging_enabled = 0;
+        pthread_join(logging_thread, NULL);
+        pthread_mutex_destroy(&logging_mutex);
+    }
 
     /*  cleanup, i.e. use destroy and free */
     if (NULL != fileParamsVector)
